@@ -51,13 +51,19 @@ def event(event_type, body):
 def build_events(ticket):
     trace_id = str(uuid.uuid4())
     span_id = str(uuid.uuid4())
+    generation_id = str(uuid.uuid4())
     start_time = utc_now()
+    prompt = (
+        "Classify this support ticket into one of: "
+        "low_touch, normal, escalate.\n\n"
+        f"Ticket: {ticket}"
+    )
 
     trace_body = {
         "id": trace_id,
         "timestamp": start_time,
         "name": f"mega-loop-test-{ticket['id']}",
-        "input": ticket,
+        "input": prompt,
         "sessionId": "mega-loop-beta-manual-test",
         "userId": "qa-user",
         "tags": ["mega-loop", "beta-test", "support-ticket-agent"],
@@ -66,6 +72,8 @@ def build_events(ticket):
             "repository": "jhseo808/mega_test",
             "file": "src/agent.py",
             "test_case": ticket["id"],
+            "input.value": prompt,
+            "openinference.span.kind": "agent",
         },
     }
 
@@ -74,38 +82,81 @@ def build_events(ticket):
         "traceId": trace_id,
         "name": "classify-support-ticket",
         "startTime": start_time,
-        "input": ticket,
+        "input": prompt,
         "metadata": trace_body["metadata"],
+    }
+
+    generation_body = {
+        "id": generation_id,
+        "traceId": trace_id,
+        "parentObservationId": span_id,
+        "name": "ticket-routing-decision",
+        "startTime": start_time,
+        "input": prompt,
+        "model": "test-agent-rules-engine",
+        "metadata": {
+            **trace_body["metadata"],
+            "openinference.span.kind": "llm",
+        },
     }
 
     try:
         result = classify_ticket(ticket)
     except Exception as exc:
+        end_time = utc_now()
         error_output = {
             "error_type": type(exc).__name__,
             "error_message": str(exc),
             "traceback": traceback.format_exc(),
         }
-        trace_body["output"] = error_output
+        error_text = f"{type(exc).__name__}: {exc}"
+        trace_body["output"] = error_text
         span_body.update(
             {
-                "endTime": utc_now(),
-                "output": error_output,
+                "endTime": end_time,
+                "output": error_text,
                 "level": "ERROR",
-                "statusMessage": f"{type(exc).__name__}: {exc}",
+                "statusMessage": error_text,
+                "metadata": {**trace_body["metadata"], **error_output},
             }
         )
-        return [event("trace-create", trace_body), event("span-create", span_body)], 1
+        generation_body.update(
+            {
+                "endTime": end_time,
+                "output": error_text,
+                "level": "ERROR",
+                "statusMessage": error_text,
+                "metadata": {**generation_body["metadata"], **error_output},
+            }
+        )
+        return [
+            event("trace-create", trace_body),
+            event("span-create", span_body),
+            event("generation-create", generation_body),
+        ], 1
 
-    trace_body["output"] = {"route": result}
+    end_time = utc_now()
+    success_text = f"Route: {result}"
+    trace_body["output"] = success_text
     span_body.update(
         {
-            "endTime": utc_now(),
-            "output": {"route": result},
+            "endTime": end_time,
+            "output": success_text,
             "level": "DEFAULT",
         }
     )
-    return [event("trace-create", trace_body), event("span-create", span_body)], 0
+    generation_body.update(
+        {
+            "endTime": end_time,
+            "output": success_text,
+            "level": "DEFAULT",
+        }
+    )
+    return [
+        event("trace-create", trace_body),
+        event("span-create", span_body),
+        event("generation-create", generation_body),
+    ], 0
 
 
 def main():
