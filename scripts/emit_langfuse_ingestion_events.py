@@ -49,6 +49,7 @@ def event(event_type, body):
 
 
 def build_events(ticket):
+    run_id = os.getenv("MEGA_LOOP_RUN_ID", "manual")
     trace_id = str(uuid.uuid4())
     span_id = str(uuid.uuid4())
     generation_id = str(uuid.uuid4())
@@ -62,7 +63,7 @@ def build_events(ticket):
     trace_body = {
         "id": trace_id,
         "timestamp": start_time,
-        "name": f"mega-loop-test-{ticket['id']}",
+        "name": f"mega-loop-test-{run_id}-{ticket['id']}",
         "input": prompt,
         "sessionId": "mega-loop-beta-manual-test",
         "userId": "qa-user",
@@ -72,6 +73,7 @@ def build_events(ticket):
             "repository": "jhseo808/mega_test",
             "file": "src/agent.py",
             "test_case": ticket["id"],
+            "run_id": run_id,
             "input.value": prompt,
             "openinference.span.kind": "agent",
         },
