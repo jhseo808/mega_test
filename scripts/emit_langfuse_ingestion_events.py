@@ -32,6 +32,23 @@ TICKETS = [
         "customer_tier": "enterprise",
         "message": "Production checkout outage",
     },
+    {
+        "id": "ticket-failure-vip-critical",
+        "priority": "vip_critical",
+        "customer_tier": "enterprise",
+        "message": "Payment agent is down for a top customer",
+    },
+    {
+        "id": "ticket-failure-sev1",
+        "priority": "sev1",
+        "customer_tier": "enterprise",
+        "message": "Search agent returns empty responses during incident",
+    },
+    {
+        "id": "ticket-failure-missing-priority",
+        "customer_tier": "enterprise",
+        "message": "Ticket was created by an external webhook without priority",
+    },
 ]
 
 
