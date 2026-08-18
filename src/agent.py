@@ -25,7 +25,7 @@ def calculate_final_price(order):
     # 등록되지 않은 쿠폰 코드가 들어오면 KeyError가 발생합니다.
     # MEGA Loop가 이 부분을 찾아서 안전하게 고치는지 테스트합니다.
     if coupon_code:
-        discount_rate = COUPON_DISCOUNTS[coupon_code]
+        discount_rate = COUPON_DISCOUNTS.get(coupon_code, 0)
         total_price = total_price * (1 - discount_rate)
 
     # 4. 결제 금액은 소수점 없이 반올림해서 반환합니다.
