@@ -1,30 +1,57 @@
 # MEGA Loop Test Agent
 
-Small intentionally simple Python project for testing MEGA Loop code connection,
-bug detection, auto-fix, and pull request generation.
+MEGA Loop 테스트를 위한 아주 작은 Python 예제 프로젝트입니다.
 
-## What this repo contains
+이 repo의 목적은 실제 서비스 코드처럼 복잡하게 만드는 것이 아니라,
+MEGA Loop가 다음 흐름을 제대로 수행하는지 확인하는 것입니다.
 
-- A tiny support-ticket classifier in `src/agent.py`
-- A known runtime bug for invalid priority values
-- Pytest tests that document the expected behavior
+1. Langfuse에 실패 trace가 쌓인다.
+2. MEGA Loop가 실패를 감지한다.
+3. 같은 원인의 실패를 bug group으로 묶는다.
+4. root cause를 설명한다.
+5. auto-fix로 Draft PR을 만든다.
 
-## Run locally
+## 예제 코드
 
-```powershell
-python -m venv .venv
-.venv\Scripts\python -m pip install -r requirements.txt
-.venv\Scripts\python -m pytest
+`src/agent.py`에는 주문 최종 결제 금액을 계산하는 함수가 있습니다.
+
+```python
+calculate_final_price(order)
 ```
 
-## Intended test bug
+입력 예시:
 
-`classify_ticket()` assumes every ticket priority is one of:
+```python
+{
+    "item_price": 10000,
+    "quantity": 2,
+    "member_level": "vip",
+    "coupon_code": "MEGA50",
+}
+```
 
-- `low`
-- `medium`
-- `high`
-- `urgent`
+## 일부러 심어둔 버그
 
-Unknown priorities currently raise a `KeyError`. A robust fix should handle
-unknown or missing priority values without crashing.
+등록되지 않은 쿠폰 코드가 들어오면 `KeyError`가 발생합니다.
+
+문제 위치:
+
+```python
+discount_rate = COUPON_DISCOUNTS[coupon_code]
+```
+
+예를 들어 `MEGA50`, `SUMMER30`, `BLACKFRIDAY` 같은 쿠폰은 현재 사전에 없기 때문에 실패합니다.
+
+MEGA Loop가 이 문제를 찾아서 다음처럼 고치는지 확인하면 됩니다.
+
+- 없는 쿠폰 코드가 들어와도 프로그램이 죽지 않는다.
+- 기존 정상 쿠폰 동작은 깨지지 않는다.
+- VIP 할인 계산도 그대로 유지된다.
+
+## 로컬 테스트
+
+```powershell
+python -m pytest
+```
+
+현재는 일부러 버그를 남겨두었기 때문에 테스트 1개가 실패하는 것이 정상입니다.

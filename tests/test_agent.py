@@ -1,31 +1,33 @@
-from src.agent import classify_ticket
+from src.agent import calculate_final_price
 
 
-def test_urgent_enterprise_ticket_escalates():
-    ticket = {
-        "priority": "urgent",
-        "customer_tier": "enterprise",
-        "message": "Checkout outage for VIP customer",
+def test_normal_order_without_coupon():
+    order = {
+        "item_price": 10000,
+        "quantity": 2,
+        "member_level": "normal",
     }
 
-    assert classify_ticket(ticket) == "escalate"
+    assert calculate_final_price(order) == 20000
 
 
-def test_low_priority_standard_ticket_is_low_touch():
-    ticket = {
-        "priority": "low",
-        "customer_tier": "standard",
-        "message": "How do I update my billing email?",
+def test_vip_order_with_valid_coupon():
+    order = {
+        "item_price": 10000,
+        "quantity": 2,
+        "member_level": "vip",
+        "coupon_code": "WELCOME10",
     }
 
-    assert classify_ticket(ticket) == "low_touch"
+    assert calculate_final_price(order) == 17100
 
 
-def test_unknown_priority_does_not_crash():
-    ticket = {
-        "priority": "critical",
-        "customer_tier": "enterprise",
-        "message": "Production checkout outage",
+def test_unknown_coupon_should_not_crash():
+    order = {
+        "item_price": 10000,
+        "quantity": 2,
+        "member_level": "vip",
+        "coupon_code": "MEGA50",
     }
 
-    assert classify_ticket(ticket) == "escalate"
+    assert calculate_final_price(order) == 19000

@@ -7,78 +7,84 @@ from langfuse import get_client, observe
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from src.agent import classify_ticket
+from src.agent import calculate_final_price
 
 
-TICKETS = [
+ORDERS = [
     {
-        "id": "observed-success-low",
-        "priority": "low",
-        "customer_tier": "standard",
-        "message": "How do I update my billing email?",
+        "id": "observed-success-normal",
+        "item_price": 10000,
+        "quantity": 2,
+        "member_level": "normal",
     },
     {
-        "id": "observed-success-urgent",
-        "priority": "urgent",
-        "customer_tier": "enterprise",
-        "message": "Checkout outage for VIP customer",
+        "id": "observed-success-welcome-coupon",
+        "item_price": 10000,
+        "quantity": 2,
+        "member_level": "vip",
+        "coupon_code": "WELCOME10",
     },
     {
-        "id": "observed-failure-critical",
-        "priority": "critical",
-        "customer_tier": "enterprise",
-        "message": "Production checkout outage",
+        "id": "observed-failure-mega50",
+        "item_price": 10000,
+        "quantity": 2,
+        "member_level": "vip",
+        "coupon_code": "MEGA50",
     },
     {
-        "id": "observed-failure-vip-critical",
-        "priority": "vip_critical",
-        "customer_tier": "enterprise",
-        "message": "Payment agent is down for a top customer",
+        "id": "observed-failure-summer30",
+        "item_price": 30000,
+        "quantity": 1,
+        "member_level": "normal",
+        "coupon_code": "SUMMER30",
     },
     {
-        "id": "observed-failure-sev1",
-        "priority": "sev1",
-        "customer_tier": "enterprise",
-        "message": "Search agent returns empty responses during incident",
+        "id": "observed-failure-blackfriday",
+        "item_price": 50000,
+        "quantity": 1,
+        "member_level": "vip",
+        "coupon_code": "BLACKFRIDAY",
     },
     {
-        "id": "observed-failure-missing-priority",
-        "customer_tier": "enterprise",
-        "message": "Ticket was created by an external webhook without priority",
+        "id": "observed-failure-vip-only",
+        "item_price": 12000,
+        "quantity": 3,
+        "member_level": "vip",
+        "coupon_code": "VIP_ONLY",
     },
 ]
 
 
-@observe(name="support-ticket-agent", as_type="agent")
-def run_support_ticket_agent(ticket):
+@observe(name="order-price-agent", as_type="agent")
+def run_order_price_agent(order):
     langfuse = get_client()
     run_id = os.getenv("MEGA_LOOP_RUN_ID", "observed")
     langfuse.update_current_trace(
-        name=f"mega-loop-observed-{run_id}-{ticket['id']}",
-        session_id=f"mega-loop-observed-{run_id}",
+        name=f"mega-loop-observed-order-{run_id}-{order['id']}",
+        session_id=f"mega-loop-observed-order-{run_id}",
         user_id="qa-user",
-        input=ticket,
-        tags=["mega-loop", "beta-test", "observed-agent"],
+        input=order,
+        tags=["mega-loop", "beta-test", "observed-order-agent"],
         metadata={
-            "component": "support-ticket-agent",
+            "component": "order-price-agent",
             "repository": "jhseo808/mega_test",
             "file": "src/agent.py",
-            "entrypoint": "classify_ticket",
-            "test_case": ticket["id"],
+            "entrypoint": "calculate_final_price",
+            "test_case": order["id"],
             "run_id": run_id,
-            "input.value": str(ticket),
+            "input.value": str(order),
             "openinference.span.kind": "agent",
         },
     )
-    route = classify_ticket(ticket)
-    output = {"route": route}
+    final_price = calculate_final_price(order)
+    output = {"final_price": final_price}
     langfuse.update_current_trace(output=output)
     return output
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Emit natural @observe Langfuse traces for MEGA Loop testing."
+        description="Emit natural @observe Langfuse traces for the order discount seed bug."
     )
     parser.add_argument("--include-failure", action="store_true")
     args = parser.parse_args()
@@ -94,15 +100,15 @@ def main():
         return 2
 
     exit_code = 0
-    tickets = TICKETS if args.include_failure else TICKETS[:2]
+    orders = ORDERS if args.include_failure else ORDERS[:2]
 
-    for ticket in tickets:
+    for order in orders:
         try:
-            result = run_support_ticket_agent(ticket)
-            print(f"{ticket['id']}: {result['route']}")
+            result = run_order_price_agent(order)
+            print(f"{order['id']}: {result['final_price']}")
         except Exception as exc:
             exit_code = 1
-            print(f"{ticket['id']}: failed with {type(exc).__name__}: {exc}")
+            print(f"{order['id']}: failed with {type(exc).__name__}: {exc}")
 
     get_client().flush()
     return exit_code

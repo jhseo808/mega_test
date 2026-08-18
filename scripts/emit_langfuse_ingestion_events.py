@@ -10,44 +10,50 @@ import requests
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from src.agent import classify_ticket
+from src.agent import calculate_final_price
 
 
-TICKETS = [
+ORDERS = [
     {
-        "id": "ticket-success-low",
-        "priority": "low",
-        "customer_tier": "standard",
-        "message": "How do I update my billing email?",
+        "id": "order-success-normal",
+        "item_price": 10000,
+        "quantity": 2,
+        "member_level": "normal",
     },
     {
-        "id": "ticket-success-urgent",
-        "priority": "urgent",
-        "customer_tier": "enterprise",
-        "message": "Checkout outage for VIP customer",
+        "id": "order-success-welcome-coupon",
+        "item_price": 10000,
+        "quantity": 2,
+        "member_level": "vip",
+        "coupon_code": "WELCOME10",
     },
     {
-        "id": "ticket-failure-critical",
-        "priority": "critical",
-        "customer_tier": "enterprise",
-        "message": "Production checkout outage",
+        "id": "order-failure-mega50",
+        "item_price": 10000,
+        "quantity": 2,
+        "member_level": "vip",
+        "coupon_code": "MEGA50",
     },
     {
-        "id": "ticket-failure-vip-critical",
-        "priority": "vip_critical",
-        "customer_tier": "enterprise",
-        "message": "Payment agent is down for a top customer",
+        "id": "order-failure-summer30",
+        "item_price": 30000,
+        "quantity": 1,
+        "member_level": "normal",
+        "coupon_code": "SUMMER30",
     },
     {
-        "id": "ticket-failure-sev1",
-        "priority": "sev1",
-        "customer_tier": "enterprise",
-        "message": "Search agent returns empty responses during incident",
+        "id": "order-failure-blackfriday",
+        "item_price": 50000,
+        "quantity": 1,
+        "member_level": "vip",
+        "coupon_code": "BLACKFRIDAY",
     },
     {
-        "id": "ticket-failure-missing-priority",
-        "customer_tier": "enterprise",
-        "message": "Ticket was created by an external webhook without priority",
+        "id": "order-failure-vip-only",
+        "item_price": 12000,
+        "quantity": 3,
+        "member_level": "vip",
+        "coupon_code": "VIP_ONLY",
     },
 ]
 
@@ -65,62 +71,61 @@ def event(event_type, body):
     }
 
 
-def build_events(ticket):
+def build_events(order):
     run_id = os.getenv("MEGA_LOOP_RUN_ID", "manual")
     trace_id = str(uuid.uuid4())
     span_id = str(uuid.uuid4())
     generation_id = str(uuid.uuid4())
     start_time = utc_now()
-    prompt = (
-        "Classify this support ticket into one of: "
-        "low_touch, normal, escalate.\n\n"
-        f"Ticket: {ticket}"
-    )
+    prompt = f"주문 최종 결제 금액을 계산해 주세요. Order: {order}"
+
+    metadata = {
+        "component": "order-price-agent",
+        "repository": "jhseo808/mega_test",
+        "file": "src/agent.py",
+        "entrypoint": "calculate_final_price",
+        "test_case": order["id"],
+        "run_id": run_id,
+        "input.value": prompt,
+        "openinference.span.kind": "agent",
+    }
 
     trace_body = {
         "id": trace_id,
         "timestamp": start_time,
-        "name": f"mega-loop-test-{run_id}-{ticket['id']}",
+        "name": f"mega-loop-order-{run_id}-{order['id']}",
         "input": prompt,
-        "sessionId": "mega-loop-beta-manual-test",
+        "sessionId": "mega-loop-order-test",
         "userId": "qa-user",
-        "tags": ["mega-loop", "beta-test", "support-ticket-agent"],
-        "metadata": {
-            "component": "support-ticket-agent",
-            "repository": "jhseo808/mega_test",
-            "file": "src/agent.py",
-            "test_case": ticket["id"],
-            "run_id": run_id,
-            "input.value": prompt,
-            "openinference.span.kind": "agent",
-        },
+        "tags": ["mega-loop", "beta-test", "order-price-agent"],
+        "metadata": metadata,
     }
 
     span_body = {
         "id": span_id,
         "traceId": trace_id,
-        "name": "classify-support-ticket",
+        "name": "calculate-final-price",
         "startTime": start_time,
         "input": prompt,
-        "metadata": trace_body["metadata"],
+        "metadata": metadata,
     }
 
     generation_body = {
         "id": generation_id,
         "traceId": trace_id,
         "parentObservationId": span_id,
-        "name": "ticket-routing-decision",
+        "name": "order-price-decision",
         "startTime": start_time,
         "input": prompt,
         "model": "test-agent-rules-engine",
         "metadata": {
-            **trace_body["metadata"],
+            **metadata,
             "openinference.span.kind": "llm",
         },
     }
 
     try:
-        result = classify_ticket(ticket)
+        result = calculate_final_price(order)
     except Exception as exc:
         end_time = utc_now()
         error_output = {
@@ -136,7 +141,7 @@ def build_events(ticket):
                 "output": error_text,
                 "level": "ERROR",
                 "statusMessage": error_text,
-                "metadata": {**trace_body["metadata"], **error_output},
+                "metadata": {**metadata, **error_output},
             }
         )
         generation_body.update(
@@ -155,7 +160,7 @@ def build_events(ticket):
         ], 1
 
     end_time = utc_now()
-    success_text = f"Route: {result}"
+    success_text = f"최종 결제 금액: {result}원"
     trace_body["output"] = success_text
     span_body.update(
         {
@@ -180,7 +185,7 @@ def build_events(ticket):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Emit direct Langfuse ingestion events for MEGA Loop testing."
+        description="Emit Langfuse ingestion events for the order discount seed bug."
     )
     parser.add_argument("--include-failure", action="store_true")
     args = parser.parse_args()
@@ -203,11 +208,11 @@ def main():
 
     batch = []
     exit_code = 0
-    selected_tickets = TICKETS if args.include_failure else TICKETS[:2]
-    for ticket in selected_tickets:
-        events, ticket_exit_code = build_events(ticket)
+    selected_orders = ORDERS if args.include_failure else ORDERS[:2]
+    for order in selected_orders:
+        events, order_exit_code = build_events(order)
         batch.extend(events)
-        exit_code = max(exit_code, ticket_exit_code)
+        exit_code = max(exit_code, order_exit_code)
 
     response = requests.post(
         f"{host.rstrip('/')}/api/public/ingestion",
