@@ -7,6 +7,7 @@ from langfuse import get_client, observe
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from scripts.env_loader import load_env_file
 from src.agent import calculate_final_price
 
 
@@ -83,6 +84,8 @@ def run_order_price_agent(order):
 
 
 def main():
+    load_env_file()
+
     parser = argparse.ArgumentParser(
         description="Emit natural @observe Langfuse traces for the order discount seed bug."
     )

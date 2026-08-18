@@ -55,3 +55,22 @@ python -m pytest
 ```
 
 현재는 일부러 버그를 남겨두었기 때문에 테스트 1개가 실패하는 것이 정상입니다.
+
+## Langfuse trace 올리기
+
+먼저 `.env.example`을 참고해서 로컬 전용 `.env` 파일을 만듭니다.
+
+```env
+LANGFUSE_BASE_URL=https://us.cloud.langfuse.com
+LANGFUSE_PUBLIC_KEY=your-langfuse-public-key
+LANGFUSE_SECRET_KEY=your-langfuse-secret-key
+MEGA_LOOP_RUN_ID=release-order-bug-20260818
+```
+
+그 다음 아래 명령을 실행합니다.
+
+```powershell
+python scripts\emit_langfuse_ingestion_events.py --include-failure
+```
+
+`.env` 파일은 `.gitignore`에 포함되어 있으므로 GitHub에 올라가지 않습니다.

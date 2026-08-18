@@ -10,6 +10,7 @@ import requests
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from scripts.env_loader import load_env_file
 from src.agent import calculate_final_price
 
 
@@ -184,6 +185,8 @@ def build_events(order):
 
 
 def main():
+    load_env_file()
+
     parser = argparse.ArgumentParser(
         description="Emit Langfuse ingestion events for the order discount seed bug."
     )
