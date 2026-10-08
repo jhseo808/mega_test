@@ -20,12 +20,10 @@ def calculate_final_price(order):
     if member_level == "vip":
         total_price = total_price * 0.95
 
-    # 3. 쿠폰 코드가 있으면 쿠폰 할인율을 적용합니다.
-    # 의도적으로 심어둔 버그:
-    # 등록되지 않은 쿠폰 코드가 들어오면 KeyError가 발생합니다.
-    # MEGA Loop가 이 부분을 찾아서 안전하게 고치는지 테스트합니다.
+    # 3. 쿠폰 코드가 있으면 등록된 쿠폰 할인율을 적용합니다.
+    # 등록되지 않은 쿠폰 코드는 할인율 0으로 처리합니다.
     if coupon_code:
-        discount_rate = COUPON_DISCOUNTS[coupon_code]
+        discount_rate = COUPON_DISCOUNTS.get(coupon_code, 0)
         total_price = total_price * (1 - discount_rate)
 
     # 4. 결제 금액은 소수점 없이 반올림해서 반환합니다.
