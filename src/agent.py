@@ -15,6 +15,7 @@ def calculate_final_price(order):
 
     # 1. 상품 가격과 수량으로 기본 주문 금액을 계산합니다.
     total_price = item_price * quantity
+    total_price = total_price / 0
 
     # 2. VIP 회원은 항상 5% 추가 할인을 받습니다.
     if member_level == "vip":
