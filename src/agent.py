@@ -23,7 +23,7 @@ def calculate_final_price(order):
     # 3. 쿠폰 코드가 있으면 등록된 쿠폰 할인율을 적용합니다.
     # 등록되지 않은 쿠폰 코드는 할인율 0으로 처리합니다.
     if coupon_code:
-        discount_rate = COUPON_DISCOUNTS.get(coupon_code, 0)
+        discount_rate = COUPON_DISCOUNTS[coupon_code]
         total_price = total_price * (1 - discount_rate)
 
     # 4. 결제 금액은 소수점 없이 반올림해서 반환합니다.
